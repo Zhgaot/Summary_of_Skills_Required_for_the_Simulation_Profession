@@ -388,9 +388,15 @@ dog.IsKindOf( RUNTIME_CLASS(CDog) );
 
 首先，关注 `IsKindOf` 函数的参数，此代码中的参数为宏 `RUNTIME_CLASS` 的返回值，回顾4.2.2.2节可知，==**宏 `RUNTIME_CLASS(theClass)` 的返回值为其参数类内的 `CRuntimeClass` 类型的静态公有成员变量的地址，即 `(CRuntimeClass*)(&theClass::classtheClass)`**==，对应本例为： `((CRuntimeClass*)(&CDog::classCDog))` ，在下文中我们可以称其为链表头（原因见4.2.2.2），不过，这个链表头是相对的，不是整个链表中真正的链表头
 
+我们将 `CRuntimeClass` 类型的静态变量从 `CDog` 开始向上展开，链表图如下所示：
+
+![](.\assets\运行时类信息机制链表结构.png)
+
 `CObject::IsKindOf` 的伪代码分析如下：
 
 ```c++
+/*-------------------- 伪代码 --------------------*/
+
 // 函数内部的this为&dog，函数实参为链表头，函数形参为：const CRuntimeClass* pClass
 dog.IsKindOf( RUNTIME_CLASS(CDog) )
 {
@@ -432,9 +438,9 @@ dog.IsKindOf(RUNTIME_CLASS(CWnd))
 
 ## 4.3 动态创建机制
 
-> **「动态创建机制」**与「运行时类信息机制」的差别仅在于结构体 `CRuntimeClass` 的第四个成员 `CObject* (PASCAL* m_pfnCreateObject)();` 是否为空
+> **「动态创建机制」**与「运行时类信息机制」的差别关键在于结构体 `CRuntimeClass` 的第四个成员 `CObject* (PASCAL* m_pfnCreateObject)();` 是否为空
 >
-> ==**「动态创建机制」的作用是：在不知道类名的情况下，将类的对象创建出来。**==
+> ==**「动态创建机制」的作用是：“在不事先知道类名的情况下”，将类的对象创建出来。**==
 
 ### 4.3.1 动态创建机制的使用
 
@@ -444,15 +450,129 @@ dog.IsKindOf(RUNTIME_CLASS(CWnd))
 - 类内必须添加声明宏 `DECLARE_DYNCREATE( theClass )` ，`theClass` 为本类类名
 - 类外必须添加实现宏 `IMPLEMENT_DYNCREATE( theClass, baseClass )`，`baseClass` 为父类类名
 
+示例代码如下：
 
+- 定义一个 `CAnimal` 类，派生自 `CObject` 类，类内添加声明宏 `DECLARE_DYNAMIC( theClass )` 、类外添加实现宏 `IMPLEMENT_DYNCREATE( theClass, baseClass )` （运行时类信息机制）
+- 定义一个 `CDog` 类，派生自 `CAnimal` 类，类内添加声明宏 `DECLARE_DYNCREATE( theClass )` 、类外添加实现宏 `IMPLEMENT_DYNCREATE( theClass, baseClass )` （动态创建机制）
 
+```c++
+#include <afxwin.h>
+#include <iostream>
 
+using namespace std;
 
+class CAnimal : public CObject {
+	DECLARE_DYNAMIC(CAnimal)
+};
+IMPLEMENT_DYNAMIC(CAnimal, CObject)
 
+class CDog : public CAnimal {
+	DECLARE_DYNCREATE( CDog )
+};
+IMPLEMENT_DYNCREATE( CDog, CAnimal )
 
+int main() {
+	CObject* pob = RUNTIME_CLASS(CDog)->CreateObject();  // 父类指针指向子类对象
+	if (pob) {
+		cout << pob << endl;  // 若成功创建CDog的对象，则打印其地址
+	} else {
+		cout << "对象创建失败" << endl;
+	}
+	return 0;
+}
+```
 
+### 4.3.2 动态创建机制剖析
 
+#### 4.3.2.1 宏展开详解
 
+探究「动态创建机制」时，可以聚焦于「动态创建机制」与「运行时类信息机制」之间的差别
 
+为深入理解动态创建机制，继4.3.1节代码，将上文所提到的声明宏 `DECLARE_DYNCREATE( theClass )` 与实现宏 `IMPLEMENT_DYNCREATE( theClass, baseClass )` 在 `CDog` 类中彻底展开，代码如下所示：
 
+```c++
+#include <afxwin.h>
+#include <iostream>
 
+using namespace std;
+
+class CAnimal : public CObject{
+	DECLARE_DYNAMIC( CAnimal )
+};
+IMPLEMENT_DYNAMIC( CAnimal, CObject )
+
+class CDog : public CAnimal{
+//	DECLARE_DYNCREATE( CDog ) 彻底展开为下文4行
+//	DECLARE_DYNAMIC( CDog ) 将DECLARE_DYNCREATE展开后包含的DECLARE_DYNAMIC展开
+public: 
+	static const CRuntimeClass classCDog; 
+	virtual CRuntimeClass* GetRuntimeClass() const; 
+	static CObject* PASCAL CreateObject();  // DECLARE_DYNCREATE多出的函数声明
+};
+
+//IMPLEMENT_DYNCREATE( CDog, CAnimal ) 彻底展开为3个实现
+//IMPLEMENT_DYNAMIC( CDog, CAnimal ) 将IMPLEMENT_DYNCREATE展开后包含的IMPLEMENT_DYNAMIC展开
+AFX_COMDAT const CRuntimeClass CDog::classCDog = { 
+		"CDog", 
+		sizeof(class CDog), 
+		0xFFFF, 
+		CDog::CreateObject,	// 与运行时类信息机制不同，这里不再为空
+		RUNTIME_CLASS(CAnimal), 
+		NULL, 
+		NULL 
+}; 
+CRuntimeClass* CDog::GetRuntimeClass() const 
+{ 
+	return RUNTIME_CLASS(CDog);
+}
+/*
+ * IMPLEMENT_DYNCREATE多出的函数实现
+ * 注：与main函数中调用的CreateObject()不是同一个函数，那个是CRuntimeClass的类内函数，但二者有关联
+ */
+CObject* PASCAL CDog::CreateObject()
+{
+	return new CDog;
+}
+
+int main(){
+	CObject* pob = RUNTIME_CLASS(CDog)->CreateObject( );  // 父类指针指向子类对象
+	if (pob) {
+		cout << pob << endl;  // 若成功创建CDog的对象，则打印其地址
+	} else {
+		cout << "对象创建失败" << endl;
+	}
+	return 0;
+}
+```
+
+展开后我们可以看到，「动态创建机制」与「运行时类信息机制」宏的区别在于：
+
+- 增加了一个名为 `CreateObject()` 的静态函数，用于返回当前对象地址
+- 在对 `CRuntimeClass` 类型的静态变量定义时第4个参数不再为 `NULL` ，而替代为新增加的名为 `CreateObject()` 的静态函数地址（名称）
+
+我们将 `CRuntimeClass` 类型的静态变量从 `CDog` 开始向上展开，链表图如下所示：
+
+![](.\assets\动态创建机制链表结构.png)
+
+#### 4.3.2.2 `CRuntimeClass::CreateObject` 详解
+
+`CRuntimeClass::CreateObject` 的伪代码分析如下：
+
+```c++
+/*-------------------- 伪代码 --------------------*/
+
+RUNTIME_CLASS(CDog)->CreateObject( )  // 函数内部的this指针为本类（CDog）的静态变量地址（链表头）
+{
+    CObject* pObject = (*m_pfnCreateObject)()  // 静态变量第4个参数CDog::CreateObject
+    {
+        return new CDog;
+    }
+    return pObject;  // 返回CDog类对象地址
+}
+```
+
+将 `CRuntimeClass::CreateObject` 调用过程总结如下：
+
+1. 利用宏 `RUNTIME_CLASS( theClass )` 获取参数类 `theClass ` 的 `CreateObject` 类型的静态变量 `classtheClass` ，再通过该静态变量调用其内部名为 `CreateObject::CreateObject()` 的成员函数
+2. 在 `CreateObject::CreateObject()` 中，获取静态变量第4个参数 `theclass::CreateObject` （ `m_pfnCreateObject` ），并调用之
+3. 在 `theclass::CreateObject` 中，完成 `theClass` 类的对象的创建，并逐层返回
