@@ -281,7 +281,7 @@ class CMyWinApp : public CWinApp {
 public:
     virtual BOOL InitInstance() {
         CMyFrameWnd* pFrame = new CMyFrameWnd;
-        pFrame->Creat(NULL, "MFCCreate");  // 接下来将详解创建窗口之过程
+        pFrame->Create(NULL, "MFCCreate");  // 接下来将详解创建窗口之过程
         m_pMainWnd = pFrame;
         pFrame->ShowWindow(SW_SHOW);
         pFrame->UpdateWindow();
@@ -622,8 +622,6 @@ struct AFX_MSGMAP {
 
 分析静态常量 `messageMap` 的定义：`static const AFX_MSGMAP messageMap = { &CFrameWnd::GetThisMessageMap, &_messageEntries[0] };` ，其传入的第一个参数为父类的 `GetThisMessageMap()` 函数，根据该函数获取父类的 `messageMap` ，而传入的第二个参数为当前自定义框架类的数组 `_messageEntries` 的首地址，而父类中也具有相同的静态常量的定义，以此类推，串成了由父类到子类的包含有各类数组 `_messageEntries` 的链表（有点类似于从子类向父类向前追溯的链表，链表头为当前自定义框架类）
 
-
-
 ### 3.3.3   宏展开各部分的作用
 
 - `GetThisMessageMap()`
@@ -642,8 +640,6 @@ struct AFX_MSGMAP {
   - 作用：直接调用 `GetThisMessageMap()` ，可返回==本类静态变量的地址（用于获取链表头）==
 
 那么，这就形成了一个单向链表，每个链表节点中存储了一个数组，该数组中的内容为该数组所属框架类对象的消息及消息响应函数
-
-
 
 ### 3.3.4   遍历链表
 
@@ -754,7 +750,7 @@ public:
 CMyWinApp theApp;
 ```
 
-#### 3.4.1.1   自定义消息宏 ( `ON_MESSAGE` )
+#### 3.4.1.2   自定义消息宏 ( `ON_MESSAGE` )
 
 1. 自定义一个消息宏 `#define WM_MYMESSAGE WM_USER+1001`
 2. 使用 `ON_MESSAGE` 来设置此自定义消息及其消息处理函数
@@ -852,7 +848,7 @@ CMyWinApp theApp;
 */
 
 #include <afxwin.h>
-#include "resource.h"
+#include "resource.h"  // 菜单的ID（IDR_MENU1）需要该头文件支持
 
 class CMyFrameWnd : public CFrameWnd {};
 
@@ -860,7 +856,7 @@ class CMyWinApp : public CWinApp {
 public:
     virtual BOOL InitInstance() {
         CMyFrameWnd* pFrame = new CMyFrameWnd;
-        pFrame->Creat(
+        pFrame->Create(
         	NULL,
             "MFCMenu",
             WS_OVERLAPPEDWINDOW,  	// 窗口风格
@@ -888,7 +884,7 @@ CMyWinApp theApp;
 */
 
 #include <afxwin.h>
-#include "resource.h"
+#include "resource.h"  // 菜单的ID（IDR_MENU1）需要该头文件支持
 
 class CMyFrameWnd : public CFrameWnd {
     DECLARE_MESSAGE_MAP()
@@ -896,7 +892,7 @@ public:
     int OnCreate(LPCREATESTRUCT pcs) {
 		this->menu.LodMenu(IDR_MENU1);  // 把菜单对象和菜单句柄建立绑定关系（这里绑定的是顶部菜单）
         this->SetMenu(&menu);  // 挂载菜单
-        //::setMenu(this->m_hWnd, this->menu.m_hMenu);  // 使用WIN32也挂载菜单
+        //::setMenu(this->m_hWnd, this->menu.m_hMenu);  // 使用WIN32挂载菜单
         return CFrameWnd::OnCreate(pcs);
     }
 public:
