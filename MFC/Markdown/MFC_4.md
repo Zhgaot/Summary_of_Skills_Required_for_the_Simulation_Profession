@@ -83,7 +83,7 @@ class CMyWinApp : public CWinApp {
 public:
     virtual BOOL InitInstance() {
         CMyFrameWnd* pFrame = new CMyFrameWnd;
-        pFrame->Creat(
+        pFrame->Create(
         	NULL,
             "MFCToolBar",
             WS_OVERLAPPEDWINDOW,  	// 窗口风格
@@ -297,10 +297,10 @@ IMPLEMENT_DYNAMIC( CDog, CAnimal )
 
 int main() {
 	CDog dog;
-	cout << "dog is CDog	: "	<< dog.IsKindOf(RUNTIME_CLASS(CDog))	<< endl;	// 1
-	cout << "dog is CAnimal	: "	<< dog.IsKindOf(RUNTIME_CLASS(CAnimal)) << endl;	// 1
-	cout << "dog is CObject	: "	<< dog.IsKindOf(RUNTIME_CLASS(CObject)) << endl;	// 1
-	cout << "dog is CWnd	: "	<< dog.IsKindOf(RUNTIME_CLASS(CWnd))	<< endl;	// 0
+	cout << "dog is CDog	: "	<< dog.IsKindOf(RUNTIME_CLASS(CDog))	<< endl;  // 1
+	cout << "dog is CAnimal	: "	<< dog.IsKindOf(RUNTIME_CLASS(CAnimal)) << endl;  // 1
+	cout << "dog is CObject	: "	<< dog.IsKindOf(RUNTIME_CLASS(CObject)) << endl;  // 1
+	cout << "dog is CWnd	: "	<< dog.IsKindOf(RUNTIME_CLASS(CWnd))	<< endl;  // 0
 	return 0;
 }
 ```
@@ -339,7 +339,7 @@ IMPLEMENT_DYNAMIC( CAnimal, CObject )
 class CDog : public CAnimal {
 //	DECLARE_DYNAMIC( CDog )  // 将声明宏展开为如下三行有效代码：
 public: 
-     // class##class_name --> classCDog 在宏中双井号代表“拼接”
+    // class##class_name --> classCDog 在宏中双井号代表“拼接”
 	static const CRuntimeClass classCDog;
 	virtual CRuntimeClass* GetRuntimeClass() const; 
 };
@@ -527,7 +527,7 @@ CRuntimeClass* CDog::GetRuntimeClass() const
 }
 /*
  * IMPLEMENT_DYNCREATE多出的函数实现
- * 注：与main函数中调用的CreateObject()不是同一个函数，那个是CRuntimeClass的类内函数，但二者有关联
+ * 注：与main中调用的CreateObject()不是同一个函数，那个是CRuntimeClass的类内函数，但二者有关联
  */
 CObject* PASCAL CDog::CreateObject()
 {
